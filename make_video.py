@@ -21,42 +21,37 @@ subject = sys.argv[1]
 print("🎯 Sujet :", subject)
 
 # -----------------------------------------------------------
-# 🧠 Étape 2 : Générer un texte via un modèle Hugging Face accessible
+# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face (Mistral)
 # -----------------------------------------------------------
 print("✍️ Appel à l'API texte Hugging Face...")
 
 API_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3"
-headers = {
-    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
-    "Content-Type": "application/json"
-}
+headers = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
 
-prompt = f"Écris un texte informatif, clair et captivant d'environ 50 secondes pour une vidéo TikTok sur : {subject}."
+prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
 
 response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-print("→ status", response.status_code)
 
-# Vérifier la réponse
+if response.status_code != 200:
+    print(f"❌ Erreur Hugging Face ({response.status_code}): {response.text}")
+    sys.exit(1)
+
 try:
     data = response.json()
-except Exception:
-    print(f"❌ Réponse texte non JSON (status {response.status_code}): {response.text[:200]}")
+    # Certains retours sont sous forme de dict, d'autres de liste
+    if isinstance(data, list) and "generated_text" in data[0]:
+        script = data[0]["generated_text"]
+    elif isinstance(data, dict) and "generated_text" in data:
+        script = data["generated_text"]
+    else:
+        # Cas de texte brut
+        script = data if isinstance(data, str) else str(data)
+except Exception as e:
+    print("❌ Erreur de parsing JSON :", e)
+    print("Réponse brute :", response.text)
     sys.exit(1)
 
-if "error" in data:
-    print(f"❌ Erreur Hugging Face : {data['error']}")
-    sys.exit(1)
-
-# Extraire le texte généré
-if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-    script = data[0]["generated_text"]
-elif isinstance(data, dict) and "generated_text" in data:
-    script = data["generated_text"]
-else:
-    print(f"❌ Structure inattendue de la réponse Hugging Face : {data}")
-    sys.exit(1)
-
-script = script.strip().split("\n")[0]
+script = script.strip()
 print("🗒️ Script généré :")
 print(script)
 
