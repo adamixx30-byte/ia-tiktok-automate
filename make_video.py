@@ -21,22 +21,22 @@ subject = sys.argv[1]
 print("🎯 Sujet :", subject)
 
 # -----------------------------------------------------------
-# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face (nouveau routeur)
+# 🧠 Étape 2 : Générer un texte via un modèle Hugging Face accessible
 # -----------------------------------------------------------
 print("✍️ Appel à l'API texte Hugging Face...")
 
-API_URL = "https://router.huggingface.co/hf-inference/models/google/gemma-2b-it"
+API_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3"
 headers = {
     "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
     "Content-Type": "application/json"
 }
 
-prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
+prompt = f"Écris un texte informatif, clair et captivant d'environ 50 secondes pour une vidéo TikTok sur : {subject}."
 
 response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
 print("→ status", response.status_code)
 
-# Vérifier et analyser la réponse
+# Vérifier la réponse
 try:
     data = response.json()
 except Exception:
