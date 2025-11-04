@@ -27,7 +27,7 @@ jobs:
         run: python make_video.py "${{ github.event.issue.title }}"
 
       - name: Upload video output
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: final_video
           path: final_video.mp4
