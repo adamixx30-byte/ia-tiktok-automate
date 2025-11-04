@@ -25,7 +25,8 @@ print("🎯 Sujet :", subject)
 # -----------------------------------------------------------
 print("✍️ Appel à l'API texte Hugging Face...")
 
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+API_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3"
+
 headers = {
     "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
     "Content-Type": "application/json"
