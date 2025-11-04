@@ -21,16 +21,24 @@ subject = sys.argv[1]
 print("🎯 Sujet :", subject)
 
 # -----------------------------------------------------------
-# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face (Mistral)
+# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face (Text Generation)
 # -----------------------------------------------------------
 print("✍️ Appel à l'API texte Hugging Face...")
 
-API_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3"
-headers = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+headers = {
+    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
+    "Content-Type": "application/json"
+}
 
 prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
 
-response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+payload = {
+    "inputs": prompt,
+    "parameters": {"max_new_tokens": 200, "temperature": 0.7, "do_sample": True}
+}
+
+response = requests.post(API_URL, headers=headers, json=payload)
 
 if response.status_code != 200:
     print(f"❌ Erreur Hugging Face ({response.status_code}): {response.text}")
@@ -38,13 +46,12 @@ if response.status_code != 200:
 
 try:
     data = response.json()
-    # Certains retours sont sous forme de dict, d'autres de liste
+    # Plusieurs formats possibles selon le modèle
     if isinstance(data, list) and "generated_text" in data[0]:
         script = data[0]["generated_text"]
     elif isinstance(data, dict) and "generated_text" in data:
         script = data["generated_text"]
     else:
-        # Cas de texte brut
         script = data if isinstance(data, str) else str(data)
 except Exception as e:
     print("❌ Erreur de parsing JSON :", e)
@@ -54,6 +61,7 @@ except Exception as e:
 script = script.strip()
 print("🗒️ Script généré :")
 print(script)
+
 
 
 # 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
