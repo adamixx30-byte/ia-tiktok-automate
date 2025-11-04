@@ -20,6 +20,11 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+ 
+    - name: Installer les dépendances Python
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Exécuter le script principal
       run: python make_video.py "Affrontements entre gangs et police à Rio de Janeiro en 2025"
