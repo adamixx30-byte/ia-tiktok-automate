@@ -1,0 +1,33 @@
+name: Make Video
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  generate_video:
+    if: contains(github.event.label.name, 'make-video')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run video generator
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python make_video.py "${{ github.event.issue.title }}"
+
+      - name: Upload video output
+        uses: actions/upload-artifact@v3
+        with:
+          name: final_video
+          path: final_video.mp4
