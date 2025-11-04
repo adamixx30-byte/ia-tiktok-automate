@@ -21,26 +21,30 @@ subject = sys.argv[1]
 print("🎯 Sujet :", subject)
 
 # -----------------------------------------------------------
-# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face
+# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face (nouveau routeur)
 # -----------------------------------------------------------
 print("✍️ Appel à l'API texte Hugging Face...")
 
-API_URL = "https://api-inference.huggingface.co/models/google/gemma-2b-it"
+API_URL = "https://router.huggingface.co/hf-inference/models/google/gemma-2b-it"
 headers = {
     "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
     "Content-Type": "application/json"
 }
 
-prompt = f"Écris un court texte informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
+prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
 
 response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
 print("→ status", response.status_code)
 
-# Vérification et parsing
+# Vérifier et analyser la réponse
 try:
     data = response.json()
 except Exception:
     print(f"❌ Réponse texte non JSON (status {response.status_code}): {response.text[:200]}")
+    sys.exit(1)
+
+if "error" in data:
+    print(f"❌ Erreur Hugging Face : {data['error']}")
     sys.exit(1)
 
 # Extraire le texte généré
@@ -54,9 +58,8 @@ else:
 
 script = script.strip().split("\n")[0]
 print("🗒️ Script généré :")
-print(script)
+print(sc
 
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
 API_URL = "https://router.huggingface.co/hf-inference/models/google/gemma-2b-it"
