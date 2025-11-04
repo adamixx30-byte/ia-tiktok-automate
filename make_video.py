@@ -28,7 +28,7 @@ if not HF_TOKEN:
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
-API_URL = "https://api-inference.huggingface.co/models/gpt2"
+API_URL = "https://router.huggingface.co/hf-inference/models/gpt2"
 prompt = f"Écris un court script informatif et captivant (≈45-55s) pour une vidéo TikTok sur : {subject}"
 
 print("✍️ Appel à l'API texte Hugging Face...")
@@ -67,7 +67,7 @@ print("🗒 Script extrait (preview 400 chars):")
 print(script[:400])
 
 # 4) Générer une image via Hugging Face (Stable Diffusion)
-IMG_API = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
+IMG_API = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-2"
 img_payload = {"inputs": subject}
 print("🖼️ Appel API image :", IMG_API)
 try:
