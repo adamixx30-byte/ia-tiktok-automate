@@ -58,7 +58,7 @@ else:
 
 script = script.strip().split("\n")[0]
 print("🗒️ Script généré :")
-print(sc
+print(script)
 
 
 # 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
