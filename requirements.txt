@@ -1,3 +1,4 @@
 requests
 gTTS
 moviepy
+Pillow
