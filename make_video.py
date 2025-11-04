@@ -25,7 +25,18 @@ headers = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
 prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
 
 response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-script = response.json()[0]["generated_text"]
+
+try:
+    data = response.json()
+    if isinstance(data, list) and "generated_text" in data[0]:
+        script = data[0]["generated_text"]
+    elif isinstance(data, dict) and "error" in data:
+        raise ValueError(f"Erreur Hugging Face: {data['error']}")
+    else:
+        raise ValueError("Réponse inattendue de l'API.")
+except Exception as e:
+    print(f"❌ Erreur génération texte : {e}")
+    sys.exit(1)
 
 # Nettoyage du texte
 script = script.strip().split("\n")[0]
