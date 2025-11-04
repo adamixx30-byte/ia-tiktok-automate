@@ -1,85 +1,160 @@
+# make_video.py - version robuste pour GitHub Actions
 import os
 import sys
 import requests
+import subprocess
+import time
 from gtts import gTTS
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-# -----------------------------------------------------------
-# 🧠 Étape 1 : Récupérer le sujet (depuis le titre de l'issue)
-# -----------------------------------------------------------
+OUT_DIR = "output"
+os.makedirs(OUT_DIR, exist_ok=True)
+
+def safe_exit(msg, code=1):
+    print("❌", msg)
+    sys.exit(code)
+
+# 1) Récupérer le sujet (arg)
 if len(sys.argv) < 2:
-    print("⚠️ Aucun sujet fourni.")
-    sys.exit(1)
+    safe_exit("Aucun sujet fourni en argument. Usage: python make_video.py \"Mon sujet\"")
 
 subject = sys.argv[1]
-print(f"🎯 Sujet reçu : {subject}")
+print("🎯 Sujet :", subject)
 
-# -----------------------------------------------------------
-# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face
-# -----------------------------------------------------------
-print("✍️ Génération du script avec l'IA...")
+# 2) Vérifier token Hugging Face
+HF_TOKEN = os.environ.get("HF_TOKEN")
+if not HF_TOKEN:
+    safe_exit("HF_TOKEN manquant. Ajoute le secret HF_TOKEN dans Settings -> Secrets")
 
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+# 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
 API_URL = "https://api-inference.huggingface.co/models/gpt2"
-headers = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
+prompt = f"Écris un court script informatif et captivant (≈45-55s) pour une vidéo TikTok sur : {subject}"
 
-prompt = f"Écris un court script informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
-
-response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-
+print("✍️ Appel à l'API texte Hugging Face...")
 try:
-    data = response.json()
-    if isinstance(data, list) and "generated_text" in data[0]:
-        script = data[0]["generated_text"]
-    elif isinstance(data, dict) and "error" in data:
-        raise ValueError(f"Erreur Hugging Face: {data['error']}")
-    else:
-        raise ValueError("Réponse inattendue de l'API.")
+    r = requests.post(API_URL, headers=headers, json={"inputs": prompt}, timeout=60)
 except Exception as e:
-    print(f"❌ Erreur génération texte : {e}")
-    sys.exit(1)
+    safe_exit(f"Erreur réseau lors de l'appel texte HF: {e}")
 
-# Nettoyage du texte
-script = script.strip().split("\n")[0]
-print("🗒️ Script généré :")
-print(script)
+print("→ status", r.status_code)
+try:
+    data = r.json()
+except Exception:
+    safe_exit(f"Réponse texte non JSON (status {r.status_code}): {r.text[:400]}")
 
-# -----------------------------------------------------------
-# 🖼️ Étape 3 : Générer une image illustrant le sujet
-# -----------------------------------------------------------
-print("🧠 Génération d'une image avec Hugging Face...")
+# Cas d'erreur renvoyée par HF
+if isinstance(data, dict) and data.get("error"):
+    safe_exit(f"HuggingFace error: {data.get('error')}")
 
+# Récupération texte (divers formats possibles)
+script = None
+if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+    script = data[0]["generated_text"]
+elif isinstance(data, dict) and "generated_text" in data:
+    script = data["generated_text"]
+else:
+    # fallback : si la réponse est texte brut dans 'data'
+    if isinstance(data, str):
+        script = data
+    else:
+        safe_exit(f"Réponse inattendue de l'API texte: {data}")
+
+script = script.strip()
+# Raccourcir au premier paragraphe si trop long
+script = script.split("\n")[0]
+print("🗒 Script extrait (preview 400 chars):")
+print(script[:400])
+
+# 4) Générer une image via Hugging Face (Stable Diffusion)
 IMG_API = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
 img_payload = {"inputs": subject}
-img_response = requests.post(IMG_API, headers=headers, json=img_payload)
+print("🖼️ Appel API image :", IMG_API)
+try:
+    r_img = requests.post(IMG_API, headers=headers, json=img_payload, timeout=120)
+except Exception as e:
+    print("⚠️ Erreur réseau image:", e)
+    r_img = None
 
-# Sauvegarde de l'image
-with open("image.jpg", "wb") as f:
-    f.write(img_response.content)
+image_path = os.path.join(OUT_DIR, "image.jpg")
 
-print("✅ Image générée et enregistrée sous image.jpg")
+if r_img is None:
+    print("⚠️ Pas de réponse image, on prend fallback.")
+    # fallback image random
+    fallback = requests.get("https://picsum.photos/720/1280")
+    with open(image_path, "wb") as f:
+        f.write(fallback.content)
+else:
+    print("→ image status", r_img.status_code)
+    # Si content-type indique une image, sauvegarder
+    ctype = r_img.headers.get("content-type", "")
+    if ctype.startswith("image/"):
+        with open(image_path, "wb") as f:
+            f.write(r_img.content)
+        print("✅ Image sauvegardée:", image_path)
+    else:
+        # Parfois HF renvoie JSON d'erreur ou loading
+        try:
+            j = r_img.json()
+            print("⚠️ Réponse image JSON received:", j)
+        except Exception:
+            print("⚠️ Réponse image non JSON, head content:", r_img.text[:300])
+        print("➡️ Utilisation d'une image fallback (picsum).")
+        fallback = requests.get("https://picsum.photos/720/1280")
+        with open(image_path, "wb") as f:
+            f.write(fallback.content)
 
-# -----------------------------------------------------------
-# 🔊 Étape 4 : Générer la voix avec gTTS (Google Text-to-Speech)
-# -----------------------------------------------------------
-print("🎤 Génération de la voix...")
+# 5) Générer l'audio avec gTTS
+audio_path = os.path.join(OUT_DIR, "audio.mp3")
+try:
+    print("🔊 Génération audio avec gTTS...")
+    tts = gTTS(script, lang="fr")
+    tts.save(audio_path)
+    print("✅ Audio sauvegardé:", audio_path)
+except Exception as e:
+    safe_exit(f"Erreur gTTS: {e}")
 
-tts = gTTS(script, lang="fr")
-tts.save("audio.mp3")
-print("✅ Voix enregistrée sous audio.mp3")
+# 6) Assembler image + audio en vidéo verticale 9:16 (utilise ffmpeg)
+final_video = os.path.join(OUT_DIR, "final_video.mp4")
 
-# -----------------------------------------------------------
-# 🎬 Étape 5 : Assembler la vidéo avec MoviePy
-# -----------------------------------------------------------
-print("🎬 Assemblage de la vidéo...")
+# get audio duration via ffprobe
+def get_audio_duration(path):
+    try:
+        out = subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", path
+        ], stderr=subprocess.STDOUT)
+        return float(out.strip())
+    except Exception as e:
+        print("⚠️ Impossible de lire la durée audio via ffprobe:", e)
+        return None
 
-# Charger les médias
-clip = ImageClip("image.jpg", duration=50)
-audio = AudioFileClip("audio.mp3")
+audio_dur = get_audio_duration(audio_path) or 10.0
+print("⏱ Audio duration:", audio_dur)
 
-# Adapter la durée à celle de l'audio
-clip = clip.set_duration(audio.duration)
-clip = clip.set_audio(audio)
+# create a short video from image with same duration
+# Use ffmpeg to loop the image for audio_dur seconds and create 1080x1920
+try:
+    # resize image to 1080x1920, pad if necessary
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", image_path,
+        "-i", audio_path,
+        "-c:v", "libx264",
+        "-t", f"{audio_dur}",
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        final_video
+    ]
+    print("🔧 Lancement ffmpeg...")
+    print(" ".join(cmd))
+    subprocess.run(cmd, check=True)
+    print("✅ Vidéo générée:", final_video)
+except subprocess.CalledProcessError as e:
+    safe_exit(f"ffmpeg failed: {e}. stdout/stderr not captured here.")
 
-# Exporter la vidéo
-clip.write_videofile("final_video.mp4", fps=24)
-print("✅ Vidéo finale générée : final_video.mp4")
+# 7) Fin
+print("🎉 Pipeline terminé. Fichier final :", final_video)
