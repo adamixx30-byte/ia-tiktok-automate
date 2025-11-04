@@ -28,7 +28,8 @@ if not HF_TOKEN:
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 # 3) Générer le script texte via Hugging Face (GPT-2 ou un modèle texte)
-API_URL = "https://router.huggingface.co/hf-inference/models/gpt2"
+API_URL = "https://router.huggingface.co/hf-inference/models/google/gemma-2b-it"
+
 prompt = f"Écris un court script informatif et captivant (≈45-55s) pour une vidéo TikTok sur : {subject}"
 
 print("✍️ Appel à l'API texte Hugging Face...")
