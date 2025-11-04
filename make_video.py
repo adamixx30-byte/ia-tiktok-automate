@@ -20,10 +20,41 @@ if len(sys.argv) < 2:
 subject = sys.argv[1]
 print("🎯 Sujet :", subject)
 
-# 2) Vérifier token Hugging Face
-HF_TOKEN = os.environ.get("HF_TOKEN")
-if not HF_TOKEN:
-    safe_exit("HF_TOKEN manquant. Ajoute le secret HF_TOKEN dans Settings -> Secrets")
+# -----------------------------------------------------------
+# 🧠 Étape 2 : Générer un texte via l’IA Hugging Face
+# -----------------------------------------------------------
+print("✍️ Appel à l'API texte Hugging Face...")
+
+API_URL = "https://api-inference.huggingface.co/models/google/gemma-2b-it"
+headers = {
+    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}",
+    "Content-Type": "application/json"
+}
+
+prompt = f"Écris un court texte informatif et captivant (50 secondes max) pour une vidéo TikTok sur : {subject}."
+
+response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+print("→ status", response.status_code)
+
+# Vérification et parsing
+try:
+    data = response.json()
+except Exception:
+    print(f"❌ Réponse texte non JSON (status {response.status_code}): {response.text[:200]}")
+    sys.exit(1)
+
+# Extraire le texte généré
+if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+    script = data[0]["generated_text"]
+elif isinstance(data, dict) and "generated_text" in data:
+    script = data["generated_text"]
+else:
+    print(f"❌ Structure inattendue de la réponse Hugging Face : {data}")
+    sys.exit(1)
+
+script = script.strip().split("\n")[0]
+print("🗒️ Script généré :")
+print(script)
 
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
